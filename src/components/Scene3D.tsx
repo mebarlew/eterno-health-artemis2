@@ -163,11 +163,10 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     earthGroup.add(new THREE.Mesh(earthGeo, new THREE.MeshToonMaterial({ color: 0x3498db, gradientMap: earthGrad })));
     earthGroup.add(createOutline(earthGeo, 0x1a3550, 1.06));
 
-    const atmosphereGeo = new THREE.RingGeometry(EARTH_RADIUS * 1.02, EARTH_RADIUS * 1.18, 64);
-    const atmosphereMat = new THREE.MeshBasicMaterial({ color: 0x5dade2, transparent: true, opacity: 0.25, side: THREE.DoubleSide });
-    const atmosphere = new THREE.Mesh(atmosphereGeo, atmosphereMat);
-    atmosphere.lookAt(camera.position);
-    earthGroup.add(atmosphere);
+    // Atmosphere glow (sphere slightly larger than Earth)
+    const atmosphereGeo = new THREE.SphereGeometry(EARTH_RADIUS * 1.12, 32, 32);
+    const atmosphereMat = new THREE.MeshBasicMaterial({ color: 0x5dade2, transparent: true, opacity: 0.08, side: THREE.BackSide });
+    earthGroup.add(new THREE.Mesh(atmosphereGeo, atmosphereMat));
 
     const eyeWhiteGeo = new THREE.SphereGeometry(0.35, 16, 16);
     const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -249,8 +248,6 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
 
       earthGroup.rotation.y = t * 0.1;
       earthGroup.position.y = Math.sin(t * 0.5) * 0.3;
-      atmosphere.lookAt(camera.position);
-
       // FIX #3: use = not += for moon bob (no drift)
       moonGroup.position.y = state.moonBaseY + Math.sin(t * 0.7 + 2) * 0.3;
 
@@ -305,7 +302,7 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
         // Look at Earth from far enough to see trajectory + rocket departing
         const toRocket = rocketPos.clone().sub(earthPos).normalize();
         lookAt = earthPos.clone().add(toRocket.multiplyScalar(5));
-        endPos = earthPos.clone().sub(toRocket.multiplyScalar(25)).add(new THREE.Vector3(0, 15, 0));
+        endPos = earthPos.clone().sub(toRocket.multiplyScalar(14)).add(new THREE.Vector3(0, 8, 0));
       } else {
         // Moon: look at Moon, camera positioned so rocket is behind Moon
         lookAt = moonPos.clone();
