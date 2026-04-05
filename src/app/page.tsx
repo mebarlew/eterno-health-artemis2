@@ -152,19 +152,8 @@ function TrackerApp() {
         <MissionTimeline />
 
         {/* Footer */}
-        <footer className="border-t border-[#1a3a30] pt-4 pb-6 flex items-center justify-between text-[10px] text-[#385759]">
-          <span>Eterno Health GmbH</span>
-          <span>
-            Data: NASA/JPL Horizons &middot;{" "}
-            <a
-              href="https://www.eterno.health"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#88E59C]/40 hover:text-[#88E59C]/60 transition-colors"
-            >
-              eterno.health
-            </a>
-          </span>
+        <footer className="border-t border-[#1a3a30] pt-4 pb-6 text-right text-[10px] text-[#385759]">
+          Data: NASA/JPL Horizons
         </footer>
       </main>
     </div>

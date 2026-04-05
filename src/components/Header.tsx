@@ -8,14 +8,15 @@ export default function Header() {
   return (
     <header className="flex items-center justify-between px-6 py-4 border-b border-[#1a3a30] bg-[#0a1612]/80 backdrop-blur-md sticky top-0 z-50">
       <div className="flex items-center gap-4">
-        <div className="text-[#88E59C]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/eterno-logo.svg" alt="Eterno Health" width={120} height={20} className="brightness-0 invert opacity-90" />
-        </div>
-        <div className="hidden sm:block h-6 w-px bg-[#1a3a30]" />
         <div className="hidden sm:block">
           <h1 className="text-sm font-semibold text-[#F4F4F9]">{t("title")}</h1>
           <p className="text-[10px] text-[#88E59C]/50">{t("subtitle")}</p>
+        </div>
+        <div className="hidden sm:block h-6 w-px bg-[#1a3a30]" />
+        <div className="flex items-center gap-2 text-[#88E59C]">
+          <span className="text-xs font-medium text-[#88E59C]/70 tracking-wider">FOR</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/eterno-logo.svg" alt="Eterno Health" width={120} height={20} className="brightness-0 invert opacity-90" />
         </div>
       </div>
 

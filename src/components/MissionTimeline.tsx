@@ -51,28 +51,38 @@ export default function MissionTimeline() {
           style={{ left: `calc(${progress * 100}% - 6px)` }}
         />
 
-        <div className="flex justify-between mt-4">
-          {MILESTONES.map((m) => {
+        {/* Milestone dots positioned by dayOffset */}
+        {MILESTONES.map((m) => {
+          const pos = (m.dayOffset / TOTAL_DAYS) * 100;
+          const isPast = elapsedDays >= m.dayOffset;
+          return (
+            <div
+              key={m.key}
+              className={`absolute -top-0.5 w-2 h-2 rounded-full ${isPast ? "bg-[#88E59C]" : "bg-[#385759]"}`}
+              style={{ left: `calc(${pos}% - 4px)` }}
+            />
+          );
+        })}
+
+        {/* Milestone labels below, also positioned by dayOffset */}
+        <div className="relative mt-4 h-8">
+          {MILESTONES.map((m, i) => {
+            const pos = (m.dayOffset / TOTAL_DAYS) * 100;
             const isPast = elapsedDays >= m.dayOffset;
+            // Alternate label heights so they don't overlap
+            const topOffset = i % 2 === 0 ? 0 : 16;
+            // Keep first label left-aligned, last right-aligned, others centered
+            const transform = i === 0 ? "translateX(0)" : i === MILESTONES.length - 1 ? "translateX(-100%)" : "translateX(-50%)";
             return (
-              <div
+              <span
                 key={m.key}
-                className="flex flex-col items-center"
-                style={{ width: `${100 / MILESTONES.length}%` }}
+                className={`absolute text-[10px] leading-tight whitespace-nowrap ${
+                  isPast ? "text-[#88E59C]" : "text-[#385759]"
+                }`}
+                style={{ left: `${pos}%`, top: `${topOffset}px`, transform }}
               >
-                <div
-                  className={`w-2 h-2 rounded-full mb-2 ${
-                    isPast ? "bg-[#88E59C]" : "bg-[#1a3a30]"
-                  }`}
-                />
-                <span
-                  className={`text-[10px] text-center leading-tight ${
-                    isPast ? "text-[#88E59C]" : "text-[#385759]"
-                  }`}
-                >
-                  {t(m.key)}
-                </span>
-              </div>
+                {t(m.key)}
+              </span>
             );
           })}
         </div>
