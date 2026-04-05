@@ -5,8 +5,8 @@ import { useI18n, type TranslationKey } from "@/lib/i18n";
 import type { MissionData } from "@/types/mission";
 import { CREW, LAUNCH_TIME } from "@/types/mission";
 
-function formatNumber(n: number): string {
-  return n.toLocaleString("en-US");
+function formatNumber(n: number, lang: string): string {
+  return n.toLocaleString(lang === "de" ? "de-DE" : "en-US");
 }
 
 function getCurrentPhase(elapsedDays: number): { current: TranslationKey; next: TranslationKey | null } {
@@ -72,8 +72,8 @@ export default function MissionStats({ data }: { data: MissionData | null }) {
       <div className="grid grid-cols-2 gap-3">
         <StatCard label={t("missionElapsed")} value={elapsed} />
         <StatCard label={t("missionDay")} value={String(missionElapsed.days + 1)} />
-        <StatCard label={t("distanceEarth")} value={formatNumber(distanceFromEarth)} unit={t("km")} />
-        <StatCard label={t("distanceMoon")} value={formatNumber(distanceFromMoon)} unit={t("km")} />
+        <StatCard label={t("distanceEarth")} value={formatNumber(distanceFromEarth, lang)} unit={t("km")} />
+        <StatCard label={t("distanceMoon")} value={formatNumber(distanceFromMoon, lang)} unit={t("km")} />
       </div>
 
       <StatCard label={t("velocity")} value={velocity.toFixed(3)} unit={t("kms")} />

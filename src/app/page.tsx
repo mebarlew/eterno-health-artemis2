@@ -46,16 +46,29 @@ function TrackerApp() {
   const [loading, setLoading] = useState(true);
   const focusRef = useRef<FocusFn | null>(null);
   const [activeNav, setActiveNav] = useState<FocusTarget>("overview");
+  const abortRef = useRef<AbortController | null>(null);
+
+  const handleSceneReady = useCallback((fn: FocusFn) => {
+    focusRef.current = fn;
+  }, []);
 
   const fetchData = useCallback(async () => {
+    // FIX #13: cancel previous in-flight request
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    // FIX #14: show loading on retry
+    setLoading(true);
     try {
-      const res = await fetch("/api/position");
+      const res = await fetch("/api/position", { signal: controller.signal });
       if (!res.ok) throw new Error("API error");
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       setData(json);
       setError(null);
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
@@ -65,7 +78,10 @@ function TrackerApp() {
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, REFRESH_INTERVAL);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      abortRef.current?.abort();
+    };
   }, [fetchData]);
 
   const focusOn = useCallback((target: FocusTarget) => {
@@ -84,23 +100,23 @@ function TrackerApp() {
       </div>
 
       <main className="flex-1 p-4 md:p-6 space-y-4 md:space-y-6 animate-fade-in">
+        {/* Navigation bar */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] text-[#88E59C]/50 uppercase tracking-wider mr-1">{t("nav")}</span>
+          <NavButton color="#607d8b" label={t("overview")} active={activeNav === "overview"} onClick={() => focusOn("overview")} />
+          <NavButton color="#3498db" label={t("earth")} active={activeNav === "earth"} onClick={() => focusOn("earth")} />
+          <NavButton color="#d5d8dc" label={t("moon")} active={activeNav === "moon"} onClick={() => focusOn("moon")} />
+          <NavButton color="#88E59C" label={t("orion")} active={activeNav === "orion"} onClick={() => focusOn("orion")} />
+        </div>
+
         {/* 3D Scene + Stats */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 md:gap-6">
-          {/* Navigation bar */}
-          <div className="flex items-center gap-2 flex-wrap mb-3">
-            <span className="text-[10px] text-[#88E59C]/50 uppercase tracking-wider mr-1">{t("nav")}</span>
-            <NavButton color="#607d8b" label={t("overview")} active={activeNav === "overview"} onClick={() => focusOn("overview")} />
-            <NavButton color="#3498db" label={t("earth")} active={activeNav === "earth"} onClick={() => focusOn("earth")} />
-            <NavButton color="#d5d8dc" label={t("moon")} active={activeNav === "moon"} onClick={() => focusOn("moon")} />
-            <NavButton color="#88E59C" label={t("orion")} active={activeNav === "orion"} onClick={() => focusOn("orion")} />
-          </div>
-
           <div className="relative bg-[#0a1612] border border-[#1a3a30] rounded-xl overflow-hidden">
             <div className="h-[400px] md:h-[520px] lg:h-[580px]">
-              <Scene3D data={data} onReady={(fn) => { focusRef.current = fn; }} />
+              <Scene3D data={data} onReady={handleSceneReady} />
             </div>
 
-            {loading && (
+            {loading && !data && (
               <div className="absolute inset-0 flex items-center justify-center bg-[#080f0d]/80">
                 <div className="text-center">
                   <div className="w-8 h-8 border-2 border-[#88E59C]/30 border-t-[#88E59C] rounded-full animate-spin mx-auto mb-3" />

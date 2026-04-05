@@ -1,4 +1,5 @@
 import type { StateVector, TrajectoryPoint } from "@/types/mission";
+import { LAUNCH_TIME } from "@/types/mission";
 
 const HORIZONS_API = "https://ssd.jpl.nasa.gov/api/horizons.api";
 const ORION_ID = "-1024";
@@ -36,8 +37,9 @@ interface ParsedVector {
 }
 
 function parseHorizonsResponse(jsonText: string): ParsedVector[] {
-  const data = JSON.parse(jsonText);
-  const result: string = data.result;
+  const data = JSON.parse(jsonText) as { result?: string };
+  const result = data.result;
+  if (typeof result !== "string") return [];
 
   const soeIndex = result.indexOf("$$SOE");
   const eoeIndex = result.indexOf("$$EOE");
@@ -50,7 +52,8 @@ function parseHorizonsResponse(jsonText: string): ParsedVector[] {
 
   for (const line of lines) {
     const parts = line.split(",").map((s) => s.trim()).filter(Boolean);
-    if (parts.length < 7) continue;
+    // FIX: need at least 8 parts (JD, date, X, Y, Z, VX, VY, VZ)
+    if (parts.length < 8) continue;
 
     const jd = parseFloat(parts[0]);
     const x = parseFloat(parts[2]);
@@ -60,7 +63,8 @@ function parseHorizonsResponse(jsonText: string): ParsedVector[] {
     const vy = parseFloat(parts[6]);
     const vz = parseFloat(parts[7]);
 
-    if (isNaN(jd) || isNaN(x)) continue;
+    // FIX: validate ALL parsed values, not just jd and x
+    if (isNaN(jd) || isNaN(x) || isNaN(y) || isNaN(z) || isNaN(vx) || isNaN(vy) || isNaN(vz)) continue;
 
     const unixMs = (jd - 2440587.5) * 86400000;
     const timestamp = new Date(unixMs).toISOString();
@@ -109,8 +113,11 @@ export async function fetchMissionData() {
     throw new Error("No ephemeris data returned from Horizons");
   }
 
-  const currentOrion = findClosest(orionVectors, now)!;
-  const currentMoon = findClosest(moonVectors, now)!;
+  const currentOrion = findClosest(orionVectors, now);
+  const currentMoon = findClosest(moonVectors, now);
+  if (!currentOrion || !currentMoon) {
+    throw new Error("Could not find position data for current time");
+  }
 
   const distanceFromEarth = Math.sqrt(
     currentOrion.x ** 2 + currentOrion.y ** 2 + currentOrion.z ** 2
@@ -124,34 +131,24 @@ export async function fetchMissionData() {
     currentOrion.vx ** 2 + currentOrion.vy ** 2 + currentOrion.vz ** 2
   );
 
-  const launchTime = new Date("2026-04-01T22:35:12Z");
-  const elapsedMs = now.getTime() - launchTime.getTime();
+  // FIX: use shared LAUNCH_TIME instead of duplicating
+  const elapsedMs = now.getTime() - LAUNCH_TIME.getTime();
   const totalMinutes = Math.floor(elapsedMs / 60000);
   const days = Math.floor(totalMinutes / 1440);
   const hours = Math.floor((totalMinutes % 1440) / 60);
   const minutes = totalMinutes % 60;
 
   const trajectory: TrajectoryPoint[] = orionVectors.map((v) => ({
-    x: v.x,
-    y: v.y,
-    z: v.z,
-    timestamp: v.timestamp,
+    x: v.x, y: v.y, z: v.z, timestamp: v.timestamp,
   }));
 
   const moonOrbit: TrajectoryPoint[] = moonVectors.map((v) => ({
-    x: v.x,
-    y: v.y,
-    z: v.z,
-    timestamp: v.timestamp,
+    x: v.x, y: v.y, z: v.z, timestamp: v.timestamp,
   }));
 
   const orionState: StateVector = {
-    x: currentOrion.x,
-    y: currentOrion.y,
-    z: currentOrion.z,
-    vx: currentOrion.vx,
-    vy: currentOrion.vy,
-    vz: currentOrion.vz,
+    x: currentOrion.x, y: currentOrion.y, z: currentOrion.z,
+    vx: currentOrion.vx, vy: currentOrion.vy, vz: currentOrion.vz,
   };
 
   return {

@@ -35,35 +35,29 @@ function createOutline(geo: THREE.BufferGeometry, color: number, scale: number):
   return mesh;
 }
 
-function buildRocket(): THREE.Group {
+function buildRocket(): { group: THREE.Group; flame: THREE.Mesh; innerFlame: THREE.Mesh } {
   const rocket = new THREE.Group();
   const grad = createToonGradient([0x2ecc71, 0x58d68d, 0x88e59c, 0xabebc6]);
 
-  // Body cylinder
   const bodyGeo = new THREE.CylinderGeometry(0.25, 0.3, 1.4, 8);
   const bodyMat = new THREE.MeshToonMaterial({ color: 0xf0f0f0, gradientMap: grad });
-  const body = new THREE.Mesh(bodyGeo, bodyMat);
-  rocket.add(body);
-  // Body outline
+  rocket.add(new THREE.Mesh(bodyGeo, bodyMat));
   rocket.add(createOutline(bodyGeo, 0x1a5032, 1.1));
 
-  // Nose cone
   const noseGeo = new THREE.ConeGeometry(0.25, 0.6, 8);
   const noseMat = new THREE.MeshToonMaterial({ color: 0x88e59c, gradientMap: grad });
   const nose = new THREE.Mesh(noseGeo, noseMat);
   nose.position.y = 1.0;
   rocket.add(nose);
-  rocket.add(createOutline(noseGeo, 0x1a5032, 1.1));
-  rocket.children[rocket.children.length - 1].position.y = 1.0;
+  const noseOutline = createOutline(noseGeo, 0x1a5032, 1.1);
+  noseOutline.position.y = 1.0;
+  rocket.add(noseOutline);
 
-  // Window
   const windowGeo = new THREE.SphereGeometry(0.1, 12, 12);
-  const windowMat = new THREE.MeshBasicMaterial({ color: 0x5dade2 });
-  const win = new THREE.Mesh(windowGeo, windowMat);
+  const win = new THREE.Mesh(windowGeo, new THREE.MeshBasicMaterial({ color: 0x5dade2 }));
   win.position.set(0, 0.35, 0.26);
   rocket.add(win);
 
-  // Fins (3 around the base)
   const finShape = new THREE.Shape();
   finShape.moveTo(0, 0);
   finShape.lineTo(0.35, -0.15);
@@ -71,7 +65,6 @@ function buildRocket(): THREE.Group {
   finShape.lineTo(0, 0.4);
   const finGeo = new THREE.ExtrudeGeometry(finShape, { depth: 0.04, bevelEnabled: false });
   const finMat = new THREE.MeshToonMaterial({ color: 0xe74c3c, gradientMap: createToonGradient([0xc0392b, 0xe74c3c, 0xf1948a]) });
-
   for (let i = 0; i < 3; i++) {
     const fin = new THREE.Mesh(finGeo, finMat);
     fin.position.y = -0.7;
@@ -81,40 +74,51 @@ function buildRocket(): THREE.Group {
     rocket.add(fin);
   }
 
-  // Thruster flame
-  const flameGeo = new THREE.ConeGeometry(0.2, 0.8, 6);
   const flameMat = new THREE.MeshBasicMaterial({ color: 0xf39c12, transparent: true, opacity: 0.8 });
-  const flame = new THREE.Mesh(flameGeo, flameMat);
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.8, 6), flameMat);
   flame.position.y = -1.1;
   flame.rotation.x = Math.PI;
-  flame.name = "flame";
   rocket.add(flame);
 
-  // Inner flame
-  const innerFlameGeo = new THREE.ConeGeometry(0.1, 0.5, 6);
   const innerFlameMat = new THREE.MeshBasicMaterial({ color: 0xffeaa7, transparent: true, opacity: 0.9 });
-  const innerFlame = new THREE.Mesh(innerFlameGeo, innerFlameMat);
+  const innerFlame = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.5, 6), innerFlameMat);
   innerFlame.position.y = -1.0;
   innerFlame.rotation.x = Math.PI;
-  innerFlame.name = "innerFlame";
   rocket.add(innerFlame);
 
-  return rocket;
+  return { group: rocket, flame, innerFlame };
+}
+
+function disposeMesh(mesh: THREE.Mesh | THREE.Line) {
+  mesh.geometry.dispose();
+  if (Array.isArray(mesh.material)) {
+    mesh.material.forEach((m) => m.dispose());
+  } else {
+    mesh.material.dispose();
+  }
 }
 
 export default function Scene3D({ data, onReady }: { data: MissionData | null; onReady?: (focus: FocusFn) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const onReadyRef = useRef(onReady);
+  useEffect(() => { onReadyRef.current = onReady; });
+  const cameraAnimRef = useRef<number | null>(null);
+  const arrowMeshesRef = useRef<THREE.Mesh[]>([]);
   const sceneRef = useRef<{
     renderer: THREE.WebGLRenderer;
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
     controls: OrbitControls;
     rocketGroup: THREE.Group;
+    flame: THREE.Mesh;
+    innerFlame: THREE.Mesh;
     moonGroup: THREE.Group;
     earthGroup: THREE.Group;
     trajectoryLine: THREE.Mesh | null;
-    moonOrbitLine: THREE.Line | null;
+    futureLine: THREE.Line | null;
+    moonBaseY: number;
     animId: number;
+    dblClickHandler: (e: Event) => void;
   } | null>(null);
 
   const initScene = useCallback(() => {
@@ -131,7 +135,6 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-
     const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 2000);
     camera.position.set(5, 45, 55);
 
@@ -142,7 +145,9 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     controls.maxDistance = 200;
     controls.target.set(0, 0, 0);
     controls.enablePan = true;
-    renderer.domElement.addEventListener("dblclick", (e) => e.stopPropagation());
+
+    const dblClickHandler = (e: Event) => e.stopPropagation();
+    renderer.domElement.addEventListener("dblclick", dblClickHandler);
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambient);
@@ -154,8 +159,7 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     const earthGroup = new THREE.Group();
     const earthGeo = new THREE.SphereGeometry(EARTH_RADIUS, 32, 32);
     const earthGrad = createToonGradient([0x1a5276, 0x2e86c1, 0x5dade2, 0x85c1e9]);
-    const earthMat = new THREE.MeshToonMaterial({ color: 0x3498db, gradientMap: earthGrad });
-    earthGroup.add(new THREE.Mesh(earthGeo, earthMat));
+    earthGroup.add(new THREE.Mesh(earthGeo, new THREE.MeshToonMaterial({ color: 0x3498db, gradientMap: earthGrad })));
     earthGroup.add(createOutline(earthGeo, 0x1a3550, 1.06));
 
     const atmosphereGeo = new THREE.RingGeometry(EARTH_RADIUS * 1.02, EARTH_RADIUS * 1.18, 64);
@@ -164,28 +168,20 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     atmosphere.lookAt(camera.position);
     earthGroup.add(atmosphere);
 
-    // Face
     const eyeWhiteGeo = new THREE.SphereGeometry(0.35, 16, 16);
     const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const pupilGeo = new THREE.SphereGeometry(0.18, 16, 16);
     const pupilMat = new THREE.MeshBasicMaterial({ color: 0x1a1a2e });
-
     [[-0.55, 0.5], [0.55, 0.5]].forEach(([ex, ey]) => {
-      const eye = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
-      eye.position.set(ex, ey, EARTH_RADIUS * 0.92);
-      earthGroup.add(eye);
-      const pupil = new THREE.Mesh(pupilGeo, pupilMat);
-      pupil.position.set(ex, ey - 0.05, EARTH_RADIUS * 0.92 + 0.22);
-      earthGroup.add(pupil);
+      earthGroup.add(Object.assign(new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat), { position: new THREE.Vector3(ex, ey, EARTH_RADIUS * 0.92) }));
+      earthGroup.add(Object.assign(new THREE.Mesh(pupilGeo, pupilMat), { position: new THREE.Vector3(ex, ey - 0.05, EARTH_RADIUS * 0.92 + 0.22) }));
     });
-
     const smileCurve = new THREE.QuadraticBezierCurve3(
       new THREE.Vector3(-0.5, -0.2, EARTH_RADIUS * 0.95),
       new THREE.Vector3(0, -0.6, EARTH_RADIUS * 0.98),
       new THREE.Vector3(0.5, -0.2, EARTH_RADIUS * 0.95),
     );
-    const smileGeo = new THREE.TubeGeometry(smileCurve, 20, 0.06, 8, false);
-    earthGroup.add(new THREE.Mesh(smileGeo, new THREE.MeshBasicMaterial({ color: 0x1a1a2e })));
+    earthGroup.add(new THREE.Mesh(new THREE.TubeGeometry(smileCurve, 20, 0.06, 8, false), new THREE.MeshBasicMaterial({ color: 0x1a1a2e })));
     scene.add(earthGroup);
 
     // === MOON ===
@@ -194,27 +190,25 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     const moonGrad = createToonGradient([0x7f8c8d, 0xbdc3c7, 0xecf0f1]);
     moonGroup.add(new THREE.Mesh(moonGeo, new THREE.MeshToonMaterial({ color: 0xd5d8dc, gradientMap: moonGrad })));
     moonGroup.add(createOutline(moonGeo, 0x5d6d7e, 1.08));
-
     const craterGeo = new THREE.SphereGeometry(0.15, 12, 12);
     const craterMat = new THREE.MeshToonMaterial({ color: 0x95a5a6, gradientMap: moonGrad });
     [[0.3, 0.4, 0.85], [-0.2, -0.1, 0.9], [0.1, -0.35, 0.88]].forEach(([cx, cy, cz]) => {
-      const crater = new THREE.Mesh(craterGeo, craterMat);
-      crater.position.set(cx, cy, MOON_RADIUS * cz);
-      crater.scale.set(1, 1, 0.3);
-      moonGroup.add(crater);
+      const c = new THREE.Mesh(craterGeo, craterMat);
+      c.position.set(cx, cy, MOON_RADIUS * cz);
+      c.scale.set(1, 1, 0.3);
+      moonGroup.add(c);
     });
     scene.add(moonGroup);
 
     // === ROCKET ===
-    const rocketGroup = buildRocket();
+    const { group: rocketGroup, flame, innerFlame } = buildRocket();
     rocketGroup.scale.setScalar(2.5);
     scene.add(rocketGroup);
 
     // === STARS ===
     const starsGeo = new THREE.BufferGeometry();
-    const starCount = 400;
-    const starPositions = new Float32Array(starCount * 3);
-    for (let i = 0; i < starCount; i++) {
+    const starPositions = new Float32Array(400 * 3);
+    for (let i = 0; i < 400; i++) {
       starPositions[i * 3] = (Math.random() - 0.5) * 600;
       starPositions[i * 3 + 1] = (Math.random() - 0.5) * 600;
       starPositions[i * 3 + 2] = (Math.random() - 0.5) * 600;
@@ -222,56 +216,52 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     starsGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
     scene.add(new THREE.Points(starsGeo, new THREE.PointsMaterial({ color: 0xffeaa7, size: 1.2, sizeAttenuation: true })));
 
-    // Big decorative stars
     const bigStarGeo = new THREE.OctahedronGeometry(0.6, 0);
     const bigStarMat = new THREE.MeshBasicMaterial({ color: 0xffeaa7 });
+    const bigStars: THREE.Mesh[] = [];
     [[40, 30, -50], [-50, 20, -30], [30, -25, -60], [-35, 35, 40], [55, -10, 20]].forEach(([bx, by, bz]) => {
       const star = new THREE.Mesh(bigStarGeo, bigStarMat);
       star.position.set(bx, by, bz);
       scene.add(star);
+      bigStars.push(star);
     });
 
     const state = {
       renderer, scene, camera, controls,
-      rocketGroup, moonGroup, earthGroup,
+      rocketGroup, flame, innerFlame, moonGroup, earthGroup,
       trajectoryLine: null as THREE.Mesh | null,
-      moonOrbitLine: null as THREE.Line | null,
+      futureLine: null as THREE.Line | null,
+      moonBaseY: 0,
       animId: 0,
+      dblClickHandler,
     };
 
     function animate() {
       state.animId = requestAnimationFrame(animate);
       controls.update();
-
       const t = Date.now() * 0.001;
 
       earthGroup.rotation.y = t * 0.1;
       earthGroup.position.y = Math.sin(t * 0.5) * 0.3;
       atmosphere.lookAt(camera.position);
 
-      // Rocket thruster flicker
-      rocketGroup.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          if (child.name === "flame") {
-            (child.material as THREE.MeshBasicMaterial).opacity = 0.5 + Math.sin(t * 8) * 0.3;
-            child.scale.y = 0.8 + Math.sin(t * 6) * 0.4;
-          }
-          if (child.name === "innerFlame") {
-            (child.material as THREE.MeshBasicMaterial).opacity = 0.6 + Math.sin(t * 10) * 0.3;
-            child.scale.y = 0.7 + Math.sin(t * 7) * 0.3;
-          }
-        }
-      });
+      // FIX #3: use = not += for moon bob (no drift)
+      moonGroup.position.y = state.moonBaseY + Math.sin(t * 0.7 + 2) * 0.3;
 
-      moonGroup.position.y += Math.sin(t * 0.7 + 2) * 0.002;
+      // FIX: direct refs instead of traverse per frame
+      const flameMat = flame.material as THREE.MeshBasicMaterial;
+      flameMat.opacity = 0.5 + Math.sin(t * 8) * 0.3;
+      flame.scale.y = 0.8 + Math.sin(t * 6) * 0.4;
+      const innerFlameMat = innerFlame.material as THREE.MeshBasicMaterial;
+      innerFlameMat.opacity = 0.6 + Math.sin(t * 10) * 0.3;
+      innerFlame.scale.y = 0.7 + Math.sin(t * 7) * 0.3;
 
-      scene.children.forEach((child) => {
-        if (child instanceof THREE.Mesh && child.geometry instanceof THREE.OctahedronGeometry) {
-          child.rotation.y = t * 2;
-          child.rotation.x = t * 1.5;
-          child.scale.setScalar(0.8 + Math.sin(t * 3 + child.position.x) * 0.3);
-        }
-      });
+      // FIX: direct refs for big stars
+      for (const star of bigStars) {
+        star.rotation.y = t * 2;
+        star.rotation.x = t * 1.5;
+        star.scale.setScalar(0.8 + Math.sin(t * 3 + star.position.x) * 0.3);
+      }
 
       renderer.render(scene, camera);
     }
@@ -279,8 +269,13 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
 
     sceneRef.current = state;
 
-    // Expose focusOn with smart camera positioning
+    // FIX #7: cancel previous camera animation before starting new one
     const focusOnFn: FocusFn = (target) => {
+      if (cameraAnimRef.current !== null) {
+        cancelAnimationFrame(cameraAnimRef.current);
+        cameraAnimRef.current = null;
+      }
+
       const rocketPos = rocketGroup.position.clone();
       const moonPos = moonGroup.position.clone();
       const earthPos = earthGroup.position.clone();
@@ -298,13 +293,15 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
         const toMoon = moonPos.clone().sub(rocketPos).normalize();
         endPos = rocketPos.clone().sub(toMoon.multiplyScalar(10)).add(new THREE.Vector3(0, 4, 0));
       } else if (target === "earth") {
+        // FIX #9: camera on rocket side of Earth, not opposite
         lookAt = earthPos.clone();
         const toRocket = rocketPos.clone().sub(earthPos).normalize();
-        endPos = earthPos.clone().sub(toRocket.multiplyScalar(14)).add(new THREE.Vector3(0, 6, 0));
+        endPos = earthPos.clone().add(toRocket.multiplyScalar(14)).add(new THREE.Vector3(0, 6, 0));
       } else {
-        lookAt = moonPos.clone();
+        // Moon: camera behind Moon, looking past it toward rocket
         const toRocket = rocketPos.clone().sub(moonPos).normalize();
-        endPos = moonPos.clone().add(toRocket.multiplyScalar(10)).add(new THREE.Vector3(0, 4, 0));
+        endPos = moonPos.clone().sub(toRocket.multiplyScalar(8)).add(new THREE.Vector3(0, 5, 0));
+        lookAt = moonPos.clone().add(toRocket.multiplyScalar(5));
       }
 
       const startCamPos = camera.position.clone();
@@ -321,12 +318,16 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
         controls.target.lerpVectors(startTarget, lookAt, ease);
         controls.update();
 
-        if (p < 1) requestAnimationFrame(animateCamera);
+        if (p < 1) {
+          cameraAnimRef.current = requestAnimationFrame(animateCamera);
+        } else {
+          cameraAnimRef.current = null;
+        }
       }
       animateCamera();
     };
 
-    onReady?.(focusOnFn);
+    onReadyRef.current?.(focusOnFn);
 
     const onResizeFn = () => {
       const cw = container.clientWidth;
@@ -337,13 +338,37 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     };
     window.addEventListener("resize", onResizeFn);
 
+    // FIX #10 + #11: full cleanup on unmount
     return () => {
       window.removeEventListener("resize", onResizeFn);
+      renderer.domElement.removeEventListener("dblclick", dblClickHandler);
       cancelAnimationFrame(state.animId);
+      if (cameraAnimRef.current !== null) cancelAnimationFrame(cameraAnimRef.current);
+
+      // Dispose all scene objects
+      scene.traverse((obj) => {
+        if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+          obj.geometry.dispose();
+          if (Array.isArray(obj.material)) {
+            obj.material.forEach((m) => {
+              if (m instanceof THREE.MeshToonMaterial && m.gradientMap) m.gradientMap.dispose();
+              m.dispose();
+            });
+          } else {
+            if (obj.material instanceof THREE.MeshToonMaterial && obj.material.gradientMap) obj.material.gradientMap.dispose();
+            obj.material.dispose();
+          }
+        }
+        if (obj instanceof THREE.Points) {
+          obj.geometry.dispose();
+          (obj.material as THREE.PointsMaterial).dispose();
+        }
+      });
+
       renderer.dispose();
       container.removeChild(renderer.domElement);
     };
-  }, [onReady]);
+  }, []);
 
   useEffect(() => {
     const cleanup = initScene();
@@ -360,35 +385,47 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     const oz = -data.current.orion.y * SCALE;
     s.rocketGroup.position.set(ox, oy, oz);
 
-    // Point rocket along velocity
-    const vel = new THREE.Vector3(data.current.orion.vx, data.current.orion.vz, -data.current.orion.vy).normalize();
-    const up = new THREE.Vector3(0, 1, 0);
-    const quat = new THREE.Quaternion().setFromUnitVectors(up, vel);
-    s.rocketGroup.quaternion.copy(quat);
+    // FIX #6: guard against zero velocity
+    const vel = new THREE.Vector3(data.current.orion.vx, data.current.orion.vz, -data.current.orion.vy);
+    if (vel.lengthSq() > 1e-10) {
+      vel.normalize();
+      const up = new THREE.Vector3(0, 1, 0);
+      s.rocketGroup.quaternion.setFromUnitVectors(up, vel);
+    }
 
-    // Position Moon
+    // Position Moon (store base Y for bob animation)
     const mx = data.current.moon.x * SCALE;
     const my = data.current.moon.z * SCALE;
     const mz = -data.current.moon.y * SCALE;
     s.moonGroup.position.set(mx, my, mz);
+    s.moonBaseY = my;
 
-    // === Trajectory: traveled (bright) + future (dim dashed) ===
+    // === Cleanup previous trajectory objects ===
     if (s.trajectoryLine) {
       s.scene.remove(s.trajectoryLine);
-      s.trajectoryLine.geometry.dispose();
+      disposeMesh(s.trajectoryLine);
       s.trajectoryLine = null;
     }
-    if (s.moonOrbitLine) {
-      s.scene.remove(s.moonOrbitLine);
-      s.moonOrbitLine.geometry.dispose();
-      s.moonOrbitLine = null;
+    if (s.futureLine) {
+      s.scene.remove(s.futureLine);
+      disposeMesh(s.futureLine);
+      s.futureLine = null;
     }
+    // FIX #1: remove previous arrow meshes
+    for (const arrow of arrowMeshesRef.current) {
+      s.scene.remove(arrow);
+    }
+    if (arrowMeshesRef.current.length > 0) {
+      // Dispose shared geo/mat from first arrow (all share same)
+      arrowMeshesRef.current[0].geometry.dispose();
+      (arrowMeshesRef.current[0].material as THREE.Material).dispose();
+    }
+    arrowMeshesRef.current = [];
 
     const now = new Date();
     const trajPoints = data.trajectory.map((p) => new THREE.Vector3(p.x * SCALE, p.z * SCALE, -p.y * SCALE));
 
     if (trajPoints.length > 1) {
-      // Split trajectory into past and future segments
       const t0 = new Date(data.trajectory[0].timestamp).getTime();
       const tEnd = new Date(data.trajectory[data.trajectory.length - 1].timestamp).getTime();
       const nowMs = now.getTime();
@@ -419,28 +456,28 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
       if (futurePoints.length > 1) {
         const futureGeo = new THREE.BufferGeometry().setFromPoints(futurePoints);
         const futureMat = new THREE.LineDashedMaterial({
-          color: 0x88e59c,
-          transparent: true,
-          opacity: 0.3,
-          dashSize: 0.8,
-          gapSize: 0.4,
+          color: 0x88e59c, transparent: true, opacity: 0.3, dashSize: 0.8, gapSize: 0.4,
         });
         const futureLine = new THREE.Line(futureGeo, futureMat);
         futureLine.computeLineDistances();
         s.scene.add(futureLine);
-        s.moonOrbitLine = futureLine; // reuse ref for cleanup
+        s.futureLine = futureLine;
       }
 
-      // Direction arrows along future path (small cones every ~20% of future)
+      // Direction arrows along future path
       const arrowGeo = new THREE.ConeGeometry(0.15, 0.4, 4);
       const arrowMat = new THREE.MeshBasicMaterial({ color: 0x88e59c, transparent: true, opacity: 0.4 });
-      for (let i = 1; i < futurePoints.length - 1; i += Math.floor(futurePoints.length / 5)) {
+      const step = Math.max(1, Math.floor(futurePoints.length / 5));
+      for (let i = 1; i < futurePoints.length - 1; i += step) {
         const arrow = new THREE.Mesh(arrowGeo, arrowMat);
         arrow.position.copy(futurePoints[i]);
-        const dir = futurePoints[i + 1].clone().sub(futurePoints[i]).normalize();
-        const arrowUp = new THREE.Vector3(0, 1, 0);
-        arrow.quaternion.setFromUnitVectors(arrowUp, dir);
+        const dir = futurePoints[i + 1].clone().sub(futurePoints[i]);
+        if (dir.lengthSq() > 1e-10) {
+          dir.normalize();
+          arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+        }
         s.scene.add(arrow);
+        arrowMeshesRef.current.push(arrow);
       }
     }
   }, [data]);

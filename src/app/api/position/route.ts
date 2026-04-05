@@ -8,7 +8,8 @@ export async function GET() {
       headers: { "Cache-Control": "public, max-age=120, stale-while-revalidate=60" },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    // Log real error server-side, return generic message to client
+    console.error("[/api/position]", error instanceof Error ? error.message : error);
+    return NextResponse.json({ error: "Failed to fetch mission data" }, { status: 502 });
   }
 }
