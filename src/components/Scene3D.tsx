@@ -116,6 +116,7 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     earthGroup: THREE.Group;
     trajectoryLine: THREE.Mesh | null;
     futureLine: THREE.Line | null;
+    moonOrbitLine: THREE.Line | null;
     moonBaseY: number;
     animId: number;
     dblClickHandler: (e: Event) => void;
@@ -235,6 +236,7 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
       rocketGroup, flame, innerFlame, moonGroup, earthGroup,
       trajectoryLine: null as THREE.Mesh | null,
       futureLine: null as THREE.Line | null,
+      moonOrbitLine: null as THREE.Line | null,
       moonBaseY: 0,
       animId: 0,
       dblClickHandler,
@@ -407,7 +409,12 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     s.moonGroup.position.set(mx, my, mz);
     s.moonBaseY = my;
 
-    // === Cleanup previous trajectory objects ===
+    // === Cleanup previous objects ===
+    if (s.moonOrbitLine) {
+      s.scene.remove(s.moonOrbitLine);
+      disposeMesh(s.moonOrbitLine);
+      s.moonOrbitLine = null;
+    }
     if (s.trajectoryLine) {
       s.scene.remove(s.trajectoryLine);
       disposeMesh(s.trajectoryLine);
@@ -486,6 +493,21 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
         s.scene.add(arrow);
         arrowMeshesRef.current.push(arrow);
       }
+    }
+
+    // Moon orbit path (shows where Moon travels during mission)
+    if (data.moonOrbit.length > 1) {
+      const moonPoints = data.moonOrbit.map((p) => new THREE.Vector3(p.x * SCALE, p.z * SCALE, -p.y * SCALE));
+      const moonCurve = new THREE.CatmullRomCurve3(moonPoints);
+      const moonSmooth = moonCurve.getPoints(100);
+      const moonGeo = new THREE.BufferGeometry().setFromPoints(moonSmooth);
+      const moonMat = new THREE.LineDashedMaterial({
+        color: 0xaaaaaa, transparent: true, opacity: 0.25, dashSize: 0.6, gapSize: 0.4,
+      });
+      const moonLine = new THREE.Line(moonGeo, moonMat);
+      moonLine.computeLineDistances();
+      s.scene.add(moonLine);
+      s.moonOrbitLine = moonLine;
     }
   }, [data]);
 
