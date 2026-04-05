@@ -44,6 +44,7 @@ function TrackerApp() {
   const focusRef = useRef<FocusFn | null>(null);
   const [activeNav, setActiveNav] = useState<FocusTarget>("overview");
   const abortRef = useRef<AbortController | null>(null);
+  const initialFocusDoneRef = useRef(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [Scene3D, setScene3D] = useState<ComponentType<any> | null>(null);
 
@@ -86,6 +87,16 @@ function TrackerApp() {
       abortRef.current?.abort();
     };
   }, [fetchData]);
+
+  // Set initial camera to overview once both data and scene are ready
+  useEffect(() => {
+    if (data && focusRef.current && !initialFocusDoneRef.current) {
+      initialFocusDoneRef.current = true;
+      // Small delay to ensure scene has positioned Moon/rocket from data
+      const timer = setTimeout(() => focusRef.current?.("overview"), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [data, Scene3D]);
 
   const focusOn = useCallback((target: FocusTarget) => {
     setActiveNav(target);
