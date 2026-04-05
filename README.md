@@ -71,10 +71,6 @@ npm run build
 
 Optimized for [Vercel](https://vercel.com) deployment.
 
-## About Eterno Health
-
-[Eterno Health](https://www.eterno.health) operates modern, multi-specialty medical centers across Germany — Berlin, Frankfurt, Hamburg. We believe primary care must become more human, for doctors and patients alike.
-
 ## License
 
 MIT
