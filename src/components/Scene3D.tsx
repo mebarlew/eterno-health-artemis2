@@ -251,7 +251,7 @@ const Scene3D = forwardRef<Scene3DHandle, { data: MissionData | null }>(function
 
     // === ROCKET ===
     const rocketGroup = buildRocket();
-    rocketGroup.scale.setScalar(0.8);
+    rocketGroup.scale.setScalar(2.5);
     scene.add(rocketGroup);
 
     // === STARS ===
@@ -376,7 +376,7 @@ const Scene3D = forwardRef<Scene3DHandle, { data: MissionData | null }>(function
     const trajPoints = data.trajectory.map((p) => new THREE.Vector3(p.x * SCALE, p.z * SCALE, -p.y * SCALE));
     if (trajPoints.length > 1) {
       const curve = new THREE.CatmullRomCurve3(trajPoints);
-      const tubeGeo = new THREE.TubeGeometry(curve, 200, 0.25, 8, false);
+      const tubeGeo = new THREE.TubeGeometry(curve, 200, 0.08, 6, false);
 
       // Color each vertex by past/future
       const t0 = new Date(data.trajectory[0].timestamp).getTime();
@@ -409,12 +409,6 @@ const Scene3D = forwardRef<Scene3DHandle, { data: MissionData | null }>(function
         gradientMap: createToonGradient([0x1a5032, 0x2d6a4f, 0x88e59c]),
       });
       s.trajectoryLine = new THREE.Mesh(tubeGeo, tubeMat);
-
-      // Add outline to tube
-      const outlineMat = new THREE.MeshBasicMaterial({ color: 0x0d2818, side: THREE.BackSide });
-      const outlineMesh = new THREE.Mesh(tubeGeo.clone(), outlineMat);
-      outlineMesh.scale.setScalar(1.15);
-      s.trajectoryLine.add(outlineMesh);
 
       s.scene.add(s.trajectoryLine);
     }
