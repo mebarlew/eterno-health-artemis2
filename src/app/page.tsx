@@ -110,54 +110,26 @@ function TrackerApp() {
         {/* Timeline */}
         <MissionTimeline />
 
-        {/* Footer / About Eterno Health */}
-        <Footer />
+        {/* Footer */}
+        <footer className="border-t border-[#1a3a30] pt-4 pb-6 flex items-center justify-between text-[10px] text-[#385759]">
+          <span>Eterno Health GmbH</span>
+          <span>
+            Data: NASA/JPL Horizons &middot;{" "}
+            <a
+              href="https://www.eterno.health"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#88E59C]/40 hover:text-[#88E59C]/60 transition-colors"
+            >
+              eterno.health
+            </a>
+          </span>
+        </footer>
       </main>
     </div>
   );
 }
 
-function Footer() {
-  const { t } = useI18n();
-
-  return (
-    <footer className="border-t border-[#1a3a30] pt-6 pb-8">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div>
-          <h4 className="text-xs uppercase tracking-wider text-[#88E59C]/60 mb-3">{t("about")}</h4>
-          <p className="text-sm text-[#F4F4F9]/60 leading-relaxed">{t("aboutText")}</p>
-        </div>
-        <div>
-          <h4 className="text-xs uppercase tracking-wider text-[#88E59C]/60 mb-3">{t("services")}</h4>
-          <p className="text-sm text-[#F4F4F9]/60 leading-relaxed">{t("servicesText")}</p>
-        </div>
-        <div>
-          <h4 className="text-xs uppercase tracking-wider text-[#88E59C]/60 mb-3">{t("locations")}</h4>
-          <ul className="space-y-1.5 text-sm text-[#F4F4F9]/60">
-            <li>{t("berlin")}</li>
-            <li>{t("frankfurt")}</li>
-            <li>{t("hamburgK")}</li>
-            <li>{t("hamburgS")}</li>
-          </ul>
-        </div>
-      </div>
-      <div className="mt-6 pt-4 border-t border-[#1a3a30] flex items-center justify-between text-[10px] text-[#385759]">
-        <span>Eterno Health GmbH</span>
-        <span>
-          Data: NASA/JPL Horizons &middot;{" "}
-          <a
-            href="https://www.eterno.health"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#88E59C]/40 hover:text-[#88E59C]/60 transition-colors"
-          >
-            eterno.health
-          </a>
-        </span>
-      </div>
-    </footer>
-  );
-}
 
 export default function Page() {
   return (
