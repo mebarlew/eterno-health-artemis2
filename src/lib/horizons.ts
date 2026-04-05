@@ -88,12 +88,14 @@ function findClosest(vectors: ParsedVector[], targetTime: Date): ParsedVector | 
 
 export async function fetchMissionData() {
   const now = new Date();
-  const missionStart = "2026-04-01";
-  const missionEnd = "2026-04-12";
+  const orionStart = "2026-04-02 02:00";
+  const orionEnd = "2026-04-10 23:00";
+  const moonStart = "2026-04-01";
+  const moonEnd = "2026-04-12";
 
   const [orionRes, moonRes] = await Promise.all([
-    fetch(buildUrl(ORION_ID, missionStart, missionEnd, "3h")),
-    fetch(buildUrl(MOON_ID, missionStart, missionEnd, "3h")),
+    fetch(buildUrl(ORION_ID, orionStart, orionEnd, "3h")),
+    fetch(buildUrl(MOON_ID, moonStart, moonEnd, "3h")),
   ]);
 
   if (!orionRes.ok || !moonRes.ok) {
