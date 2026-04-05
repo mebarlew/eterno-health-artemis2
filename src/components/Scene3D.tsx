@@ -302,11 +302,10 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
         const side = new THREE.Vector3().crossVectors(toMoon, new THREE.Vector3(0, 1, 0)).normalize();
         endPos = rocketPos.clone().sub(toMoon.multiplyScalar(8)).add(side.multiplyScalar(5)).add(new THREE.Vector3(0, 4, 0));
       } else if (target === "earth") {
-        // Look at Earth, camera positioned so rocket is visible ahead
-        lookAt = earthPos.clone();
+        // Look at Earth from far enough to see trajectory + rocket departing
         const toRocket = rocketPos.clone().sub(earthPos).normalize();
-        const side = new THREE.Vector3().crossVectors(toRocket, new THREE.Vector3(0, 1, 0)).normalize();
-        endPos = earthPos.clone().sub(toRocket.multiplyScalar(4)).add(side.multiplyScalar(6)).add(new THREE.Vector3(0, 5, 0));
+        lookAt = earthPos.clone().add(toRocket.multiplyScalar(5));
+        endPos = earthPos.clone().sub(toRocket.multiplyScalar(25)).add(new THREE.Vector3(0, 15, 0));
       } else {
         // Moon: look at Moon, camera positioned so rocket is behind Moon
         lookAt = moonPos.clone();
