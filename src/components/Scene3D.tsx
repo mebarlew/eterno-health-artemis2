@@ -291,10 +291,9 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
       let endPos: THREE.Vector3;
 
       if (target === "overview") {
-        // Zoom out wide to see full Earth-Moon-trajectory
         lookAt = midpoint;
         const span = earthPos.distanceTo(moonPos);
-        endPos = midpoint.clone().add(new THREE.Vector3(0, span * 0.9, span * 0.8));
+        endPos = midpoint.clone().add(new THREE.Vector3(0, span * 1.2, span * 1.0));
       } else if (target === "orion") {
         // Look at rocket with Moon visible in background
         lookAt = rocketPos.clone();
@@ -303,9 +302,11 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
         const side = new THREE.Vector3().crossVectors(toMoon, new THREE.Vector3(0, 1, 0)).normalize();
         endPos = rocketPos.clone().sub(toMoon.multiplyScalar(8)).add(side.multiplyScalar(5)).add(new THREE.Vector3(0, 4, 0));
       } else if (target === "earth") {
-        // Simply look at Earth from above/front
+        // Look at Earth, camera positioned so rocket is visible ahead
         lookAt = earthPos.clone();
-        endPos = earthPos.clone().add(new THREE.Vector3(5, 8, 12));
+        const toRocket = rocketPos.clone().sub(earthPos).normalize();
+        const side = new THREE.Vector3().crossVectors(toRocket, new THREE.Vector3(0, 1, 0)).normalize();
+        endPos = earthPos.clone().sub(toRocket.multiplyScalar(4)).add(side.multiplyScalar(6)).add(new THREE.Vector3(0, 5, 0));
       } else {
         // Moon: look at Moon, camera positioned so rocket is behind Moon
         lookAt = moonPos.clone();
