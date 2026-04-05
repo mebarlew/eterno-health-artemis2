@@ -9,7 +9,8 @@ const SCALE = 1 / 8000;
 const EARTH_RADIUS = 2.5;
 const MOON_RADIUS = 1.0;
 
-export type FocusFn = (target: "earth" | "moon" | "orion") => void;
+export type FocusTarget = "earth" | "moon" | "orion" | "overview";
+export type FocusFn = (target: FocusTarget) => void;
 
 function createToonGradient(colors: number[]): THREE.DataTexture {
   const size = colors.length;
@@ -132,7 +133,7 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     const scene = new THREE.Scene();
 
     const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 2000);
-    camera.position.set(0, 40, 60);
+    camera.position.set(5, 45, 55);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -281,43 +282,44 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
       const rocketPos = rocketGroup.position.clone();
       const moonPos = moonGroup.position.clone();
       const earthPos = earthGroup.position.clone();
+      const midpoint = earthPos.clone().add(moonPos).multiplyScalar(0.5);
 
       let lookAt: THREE.Vector3;
       let endPos: THREE.Vector3;
 
-      if (target === "orion") {
-        // Look at rocket, camera behind it, facing toward moon
+      if (target === "overview") {
+        lookAt = midpoint;
+        const span = earthPos.distanceTo(moonPos);
+        endPos = midpoint.clone().add(new THREE.Vector3(0, span * 0.6, span * 0.5));
+      } else if (target === "orion") {
         lookAt = rocketPos.clone();
         const toMoon = moonPos.clone().sub(rocketPos).normalize();
         endPos = rocketPos.clone().sub(toMoon.multiplyScalar(10)).add(new THREE.Vector3(0, 4, 0));
       } else if (target === "earth") {
-        // Look at Earth, position camera so rocket is in view direction
         lookAt = earthPos.clone();
         const toRocket = rocketPos.clone().sub(earthPos).normalize();
-        // Camera behind Earth, offset so we see Earth with rocket direction ahead
         endPos = earthPos.clone().sub(toRocket.multiplyScalar(14)).add(new THREE.Vector3(0, 6, 0));
       } else {
-        // Moon: look at Moon, camera positioned so rocket direction is visible
         lookAt = moonPos.clone();
         const toRocket = rocketPos.clone().sub(moonPos).normalize();
-        endPos = moonPos.clone().sub(toRocket.multiplyScalar(10)).add(new THREE.Vector3(0, 4, 0));
+        endPos = moonPos.clone().add(toRocket.multiplyScalar(10)).add(new THREE.Vector3(0, 4, 0));
       }
 
-      const startPos = camera.position.clone();
+      const startCamPos = camera.position.clone();
       const startTarget = controls.target.clone();
       const duration = 1200;
       const startTime = Date.now();
 
       function animateCamera() {
         const elapsed = Date.now() - startTime;
-        const t = Math.min(elapsed / duration, 1);
-        const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const p = Math.min(elapsed / duration, 1);
+        const ease = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
 
-        camera.position.lerpVectors(startPos, endPos, ease);
+        camera.position.lerpVectors(startCamPos, endPos, ease);
         controls.target.lerpVectors(startTarget, lookAt, ease);
         controls.update();
 
-        if (t < 1) requestAnimationFrame(animateCamera);
+        if (p < 1) requestAnimationFrame(animateCamera);
       }
       animateCamera();
     };
@@ -368,67 +370,76 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     const mz = -data.current.moon.y * SCALE;
     s.moonGroup.position.set(mx, my, mz);
 
-    // === Trajectory tube (thick cartoon path) ===
+    // === Trajectory: traveled (bright) + future (dim dashed) ===
     if (s.trajectoryLine) {
       s.scene.remove(s.trajectoryLine);
       s.trajectoryLine.geometry.dispose();
+      s.trajectoryLine = null;
     }
-    const now = new Date();
-    const trajPoints = data.trajectory.map((p) => new THREE.Vector3(p.x * SCALE, p.z * SCALE, -p.y * SCALE));
-    if (trajPoints.length > 1) {
-      const curve = new THREE.CatmullRomCurve3(trajPoints);
-      const tubeGeo = new THREE.TubeGeometry(curve, 200, 0.08, 6, false);
-
-      // Color each vertex by past/future
-      const t0 = new Date(data.trajectory[0].timestamp).getTime();
-      const t1 = new Date(data.trajectory[data.trajectory.length - 1].timestamp).getTime();
-      const posAttr = tubeGeo.getAttribute("position");
-      const colors = new Float32Array(posAttr.count * 3);
-      const pastColor = new THREE.Color(0x88e59c);
-      const futureColor = new THREE.Color(0x2d6a4f);
-
-      for (let i = 0; i < posAttr.count; i++) {
-        const point = new THREE.Vector3(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
-        // Find closest parameter on the curve
-        let minDist = Infinity;
-        let bestFrac = 0;
-        for (let f = 0; f <= 1; f += 0.005) {
-          const cp = curve.getPoint(f);
-          const d = point.distanceTo(cp);
-          if (d < minDist) { minDist = d; bestFrac = f; }
-        }
-        const trajTime = t0 + bestFrac * (t1 - t0);
-        const c = trajTime <= now.getTime() ? pastColor : futureColor;
-        colors[i * 3] = c.r;
-        colors[i * 3 + 1] = c.g;
-        colors[i * 3 + 2] = c.b;
-      }
-
-      tubeGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-      const tubeMat = new THREE.MeshToonMaterial({
-        vertexColors: true,
-        gradientMap: createToonGradient([0x1a5032, 0x2d6a4f, 0x88e59c]),
-      });
-      s.trajectoryLine = new THREE.Mesh(tubeGeo, tubeMat);
-
-      s.scene.add(s.trajectoryLine);
-    }
-
-    // Moon orbit path (dashed)
     if (s.moonOrbitLine) {
       s.scene.remove(s.moonOrbitLine);
       s.moonOrbitLine.geometry.dispose();
+      s.moonOrbitLine = null;
     }
-    const moonPoints = data.moonOrbit.map((p) => new THREE.Vector3(p.x * SCALE, p.z * SCALE, -p.y * SCALE));
-    if (moonPoints.length > 1) {
-      const curve = new THREE.CatmullRomCurve3(moonPoints);
-      const smooth = curve.getPoints(100);
-      const geo = new THREE.BufferGeometry().setFromPoints(smooth);
-      const mat = new THREE.LineDashedMaterial({ color: 0x5d6d7e, transparent: true, opacity: 0.3, dashSize: 1, gapSize: 0.5 });
-      const line = new THREE.Line(geo, mat);
-      line.computeLineDistances();
-      s.moonOrbitLine = line;
-      s.scene.add(s.moonOrbitLine);
+
+    const now = new Date();
+    const trajPoints = data.trajectory.map((p) => new THREE.Vector3(p.x * SCALE, p.z * SCALE, -p.y * SCALE));
+
+    if (trajPoints.length > 1) {
+      // Split trajectory into past and future segments
+      const t0 = new Date(data.trajectory[0].timestamp).getTime();
+      const tEnd = new Date(data.trajectory[data.trajectory.length - 1].timestamp).getTime();
+      const nowMs = now.getTime();
+      const frac = Math.max(0, Math.min(1, (nowMs - t0) / (tEnd - t0)));
+
+      const fullCurve = new THREE.CatmullRomCurve3(trajPoints);
+      const totalSamples = 300;
+      const splitIndex = Math.max(1, Math.floor(frac * totalSamples));
+
+      const allPoints = fullCurve.getPoints(totalSamples);
+      const pastPoints = allPoints.slice(0, splitIndex + 1);
+      const futurePoints = allPoints.slice(splitIndex);
+
+      // Past trajectory: bright solid tube
+      if (pastPoints.length > 1) {
+        const pastCurve = new THREE.CatmullRomCurve3(pastPoints);
+        const pastTube = new THREE.TubeGeometry(pastCurve, pastPoints.length * 2, 0.12, 6, false);
+        const pastMat = new THREE.MeshToonMaterial({
+          color: 0x88e59c,
+          gradientMap: createToonGradient([0x2ecc71, 0x58d68d, 0x88e59c]),
+        });
+        const pastMesh = new THREE.Mesh(pastTube, pastMat);
+        s.scene.add(pastMesh);
+        s.trajectoryLine = pastMesh;
+      }
+
+      // Future trajectory: dim dashed line
+      if (futurePoints.length > 1) {
+        const futureGeo = new THREE.BufferGeometry().setFromPoints(futurePoints);
+        const futureMat = new THREE.LineDashedMaterial({
+          color: 0x88e59c,
+          transparent: true,
+          opacity: 0.3,
+          dashSize: 0.8,
+          gapSize: 0.4,
+        });
+        const futureLine = new THREE.Line(futureGeo, futureMat);
+        futureLine.computeLineDistances();
+        s.scene.add(futureLine);
+        s.moonOrbitLine = futureLine; // reuse ref for cleanup
+      }
+
+      // Direction arrows along future path (small cones every ~20% of future)
+      const arrowGeo = new THREE.ConeGeometry(0.15, 0.4, 4);
+      const arrowMat = new THREE.MeshBasicMaterial({ color: 0x88e59c, transparent: true, opacity: 0.4 });
+      for (let i = 1; i < futurePoints.length - 1; i += Math.floor(futurePoints.length / 5)) {
+        const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+        arrow.position.copy(futurePoints[i]);
+        const dir = futurePoints[i + 1].clone().sub(futurePoints[i]).normalize();
+        const arrowUp = new THREE.Vector3(0, 1, 0);
+        arrow.quaternion.setFromUnitVectors(arrowUp, dir);
+        s.scene.add(arrow);
+      }
     }
   }, [data]);
 

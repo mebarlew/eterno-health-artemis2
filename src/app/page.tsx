@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import type { MissionData } from "@/types/mission";
-import type { FocusFn } from "@/components/Scene3D";
+import type { FocusFn, FocusTarget } from "@/components/Scene3D";
 import Header from "@/components/Header";
 import MissionStats from "@/components/MissionStats";
 import MissionTimeline from "@/components/MissionTimeline";
@@ -13,28 +13,28 @@ const Scene3D = dynamic(() => import("@/components/Scene3D"), { ssr: false });
 
 const REFRESH_INTERVAL = 5 * 60 * 1000;
 
-function LegendItem({
+function NavButton({
   color,
   label,
-  shape = "circle",
+  active,
   onClick,
 }: {
   color: string;
   label: string;
-  shape?: "circle" | "line";
-  onClick?: () => void;
+  active: boolean;
+  onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-white/5 transition-colors w-full text-left group"
+      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+        active
+          ? "bg-[#88E59C]/15 text-[#88E59C] border border-[#88E59C]/40"
+          : "bg-[#0f2420] text-[#F4F4F9]/70 border border-[#1a3a30] hover:bg-[#1a3a30] hover:text-[#F4F4F9]"
+      }`}
     >
-      {shape === "circle" ? (
-        <span className="w-3 h-3 rounded-full shrink-0 group-hover:scale-125 transition-transform" style={{ backgroundColor: color }} />
-      ) : (
-        <span className="w-5 h-0.5 rounded shrink-0 group-hover:scale-x-125 transition-transform" style={{ backgroundColor: color }} />
-      )}
-      <span className="text-xs text-[#F4F4F9]/80 group-hover:text-[#F4F4F9] transition-colors">{label}</span>
+      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+      {label}
     </button>
   );
 }
@@ -45,6 +45,7 @@ function TrackerApp() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const focusRef = useRef<FocusFn | null>(null);
+  const [activeNav, setActiveNav] = useState<FocusTarget>("overview");
 
   const fetchData = useCallback(async () => {
     try {
@@ -67,7 +68,8 @@ function TrackerApp() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const focusOn = useCallback((target: "earth" | "moon" | "orion") => {
+  const focusOn = useCallback((target: FocusTarget) => {
+    setActiveNav(target);
     focusRef.current?.(target);
   }, []);
 
@@ -85,17 +87,17 @@ function TrackerApp() {
         {/* 3D Scene + Stats */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 md:gap-6">
           <div className="relative bg-[#0a1612] border border-[#1a3a30] rounded-xl overflow-hidden">
-            <div className="h-[400px] md:h-[520px] lg:h-[580px]">
-              <Scene3D data={data} onReady={(fn) => { focusRef.current = fn; }} />
+            {/* Navigation bar */}
+            <div className="absolute top-3 left-3 right-3 z-10 flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] text-[#88E59C]/50 uppercase tracking-wider mr-1">{t("nav")}</span>
+              <NavButton color="#607d8b" label={t("overview")} active={activeNav === "overview"} onClick={() => focusOn("overview")} />
+              <NavButton color="#3498db" label={t("earth")} active={activeNav === "earth"} onClick={() => focusOn("earth")} />
+              <NavButton color="#d5d8dc" label={t("moon")} active={activeNav === "moon"} onClick={() => focusOn("moon")} />
+              <NavButton color="#88E59C" label={t("orion")} active={activeNav === "orion"} onClick={() => focusOn("orion")} />
             </div>
 
-            {/* Clickable legend */}
-            <div className="absolute bottom-4 left-4 bg-[#0a1612]/90 backdrop-blur-sm border border-[#1a3a30] rounded-lg p-2 min-w-[140px]">
-              <p className="text-[10px] text-[#88E59C]/50 uppercase tracking-wider px-2 mb-1">{t("legend")}</p>
-              <LegendItem color="#3498db" label={t("earth")} onClick={() => focusOn("earth")} />
-              <LegendItem color="#d5d8dc" label={t("moon")} onClick={() => focusOn("moon")} />
-              <LegendItem color="#88E59C" label={t("orion")} onClick={() => focusOn("orion")} />
-              <LegendItem color="#88E59C" label={t("trajectoryLine")} shape="line" />
+            <div className="h-[400px] md:h-[520px] lg:h-[580px]">
+              <Scene3D data={data} onReady={(fn) => { focusRef.current = fn; }} />
             </div>
 
             {loading && (

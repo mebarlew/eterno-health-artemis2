@@ -52,6 +52,8 @@ const translations = {
     missionType: "Free-Return Lunar Flyby",
     currentPhase: "Current Phase",
     nextPhase: "Next",
+    nav: "Navigate",
+    overview: "Overview",
   },
   de: {
     title: "Artemis II Mondmission",
@@ -101,6 +103,8 @@ const translations = {
     missionType: "Freie Rückkehr-Mondumfliegung",
     currentPhase: "Aktuelle Phase",
     nextPhase: "Nächste",
+    nav: "Navigation",
+    overview: "Übersicht",
   },
 } as const;
 
