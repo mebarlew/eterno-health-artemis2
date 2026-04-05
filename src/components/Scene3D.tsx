@@ -132,7 +132,7 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setSize(w, h);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x0a1420);
+    renderer.setClearColor(0x0a1612);
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -302,12 +302,12 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
         // Look at Earth from far enough to see trajectory + rocket departing
         const toRocket = rocketPos.clone().sub(earthPos).normalize();
         lookAt = earthPos.clone().add(toRocket.multiplyScalar(5));
-        endPos = earthPos.clone().sub(toRocket.multiplyScalar(14)).add(new THREE.Vector3(0, 8, 0));
+        endPos = earthPos.clone().sub(toRocket.multiplyScalar(10)).add(new THREE.Vector3(0, 6, 0));
       } else {
         // Moon: look at Moon, camera positioned so rocket is behind Moon
         lookAt = moonPos.clone();
         const fromRocket = moonPos.clone().sub(rocketPos).normalize();
-        endPos = moonPos.clone().add(fromRocket.multiplyScalar(6)).add(new THREE.Vector3(0, 4, 0));
+        endPos = moonPos.clone().add(fromRocket.multiplyScalar(8)).add(new THREE.Vector3(0, 5, 0));
       }
 
       const startCamPos = camera.position.clone();
@@ -509,6 +509,6 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
   }, [data]);
 
   return (
-    <div ref={containerRef} className="w-full h-full min-h-[400px] rounded-xl overflow-hidden" />
+    <div ref={containerRef} className="w-full h-full min-h-[400px] rounded-xl overflow-hidden bg-[#0a1612]" />
   );
 }
