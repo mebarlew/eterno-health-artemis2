@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { MissionData } from "@/types/mission";
@@ -9,9 +9,7 @@ const SCALE = 1 / 8000;
 const EARTH_RADIUS = 2.5;
 const MOON_RADIUS = 1.0;
 
-export interface Scene3DHandle {
-  focusOn: (target: "earth" | "moon" | "orion") => void;
-}
+export type FocusFn = (target: "earth" | "moon" | "orion") => void;
 
 function createToonGradient(colors: number[]): THREE.DataTexture {
   const size = colors.length;
@@ -103,7 +101,7 @@ function buildRocket(): THREE.Group {
   return rocket;
 }
 
-const Scene3D = forwardRef<Scene3DHandle, { data: MissionData | null }>(function Scene3D({ data }, ref) {
+export default function Scene3D({ data, onReady }: { data: MissionData | null; onReady?: (focus: FocusFn) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<{
     renderer: THREE.WebGLRenderer;
@@ -117,51 +115,6 @@ const Scene3D = forwardRef<Scene3DHandle, { data: MissionData | null }>(function
     moonOrbitLine: THREE.Line | null;
     animId: number;
   } | null>(null);
-
-  const focusOn = useCallback((target: "earth" | "moon" | "orion") => {
-    const s = sceneRef.current;
-    if (!s) return;
-
-    let targetPos: THREE.Vector3;
-    let distance: number;
-
-    switch (target) {
-      case "earth":
-        targetPos = s.earthGroup.position.clone();
-        distance = 12;
-        break;
-      case "moon":
-        targetPos = s.moonGroup.position.clone();
-        distance = 8;
-        break;
-      case "orion":
-        targetPos = s.rocketGroup.position.clone();
-        distance = 6;
-        break;
-    }
-
-    // Animate camera to target
-    const startPos = s.camera.position.clone();
-    const startTarget = s.controls.target.clone();
-    const endPos = targetPos.clone().add(new THREE.Vector3(distance * 0.5, distance * 0.4, distance));
-    const duration = 1000;
-    const startTime = Date.now();
-
-    function animateCamera() {
-      const elapsed = Date.now() - startTime;
-      const t = Math.min(elapsed / duration, 1);
-      const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-
-      s!.camera.position.lerpVectors(startPos, endPos, ease);
-      s!.controls.target.lerpVectors(startTarget, targetPos, ease);
-      s!.controls.update();
-
-      if (t < 1) requestAnimationFrame(animateCamera);
-    }
-    animateCamera();
-  }, []);
-
-  useImperativeHandle(ref, () => ({ focusOn }), [focusOn]);
 
   const initScene = useCallback(() => {
     if (!containerRef.current) return;
@@ -323,22 +276,70 @@ const Scene3D = forwardRef<Scene3DHandle, { data: MissionData | null }>(function
 
     sceneRef.current = state;
 
-    const onResize = () => {
+    // Expose focusOn with smart camera positioning
+    const focusOnFn: FocusFn = (target) => {
+      const rocketPos = rocketGroup.position.clone();
+      const moonPos = moonGroup.position.clone();
+      const earthPos = earthGroup.position.clone();
+
+      let lookAt: THREE.Vector3;
+      let endPos: THREE.Vector3;
+
+      if (target === "orion") {
+        // Look at rocket, camera behind it, facing toward moon
+        lookAt = rocketPos.clone();
+        const toMoon = moonPos.clone().sub(rocketPos).normalize();
+        endPos = rocketPos.clone().sub(toMoon.multiplyScalar(10)).add(new THREE.Vector3(0, 4, 0));
+      } else if (target === "earth") {
+        // Look at Earth, position camera so rocket is in view direction
+        lookAt = earthPos.clone();
+        const toRocket = rocketPos.clone().sub(earthPos).normalize();
+        // Camera behind Earth, offset so we see Earth with rocket direction ahead
+        endPos = earthPos.clone().sub(toRocket.multiplyScalar(14)).add(new THREE.Vector3(0, 6, 0));
+      } else {
+        // Moon: look at Moon, camera positioned so rocket direction is visible
+        lookAt = moonPos.clone();
+        const toRocket = rocketPos.clone().sub(moonPos).normalize();
+        endPos = moonPos.clone().sub(toRocket.multiplyScalar(10)).add(new THREE.Vector3(0, 4, 0));
+      }
+
+      const startPos = camera.position.clone();
+      const startTarget = controls.target.clone();
+      const duration = 1200;
+      const startTime = Date.now();
+
+      function animateCamera() {
+        const elapsed = Date.now() - startTime;
+        const t = Math.min(elapsed / duration, 1);
+        const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+        camera.position.lerpVectors(startPos, endPos, ease);
+        controls.target.lerpVectors(startTarget, lookAt, ease);
+        controls.update();
+
+        if (t < 1) requestAnimationFrame(animateCamera);
+      }
+      animateCamera();
+    };
+
+    onReady?.(focusOnFn);
+
+    const onResizeFn = () => {
       const cw = container.clientWidth;
       const ch = container.clientHeight;
       camera.aspect = cw / ch;
       camera.updateProjectionMatrix();
       renderer.setSize(cw, ch);
     };
-    window.addEventListener("resize", onResize);
+    window.addEventListener("resize", onResizeFn);
 
     return () => {
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", onResizeFn);
       cancelAnimationFrame(state.animId);
       renderer.dispose();
       container.removeChild(renderer.domElement);
     };
-  }, []);
+  }, [onReady]);
 
   useEffect(() => {
     const cleanup = initScene();
@@ -434,6 +435,4 @@ const Scene3D = forwardRef<Scene3DHandle, { data: MissionData | null }>(function
   return (
     <div ref={containerRef} className="w-full h-full min-h-[400px] rounded-xl overflow-hidden" />
   );
-});
-
-export default Scene3D;
+}

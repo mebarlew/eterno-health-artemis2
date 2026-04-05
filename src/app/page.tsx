@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import type { MissionData } from "@/types/mission";
-import type { Scene3DHandle } from "@/components/Scene3D";
+import type { FocusFn } from "@/components/Scene3D";
 import Header from "@/components/Header";
 import MissionStats from "@/components/MissionStats";
 import MissionTimeline from "@/components/MissionTimeline";
@@ -44,7 +44,7 @@ function TrackerApp() {
   const [data, setData] = useState<MissionData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const sceneRef = useRef<Scene3DHandle>(null);
+  const focusRef = useRef<FocusFn | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -67,9 +67,9 @@ function TrackerApp() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const focusOn = (target: "earth" | "moon" | "orion") => {
-    sceneRef.current?.focusOn(target);
-  };
+  const focusOn = useCallback((target: "earth" | "moon" | "orion") => {
+    focusRef.current?.(target);
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#080f0d]">
@@ -86,7 +86,7 @@ function TrackerApp() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 md:gap-6">
           <div className="relative bg-[#0a1612] border border-[#1a3a30] rounded-xl overflow-hidden">
             <div className="h-[400px] md:h-[520px] lg:h-[580px]">
-              <Scene3D ref={sceneRef} data={data} />
+              <Scene3D data={data} onReady={(fn) => { focusRef.current = fn; }} />
             </div>
 
             {/* Clickable legend */}
