@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useI18n } from "@/lib/i18n";
 
 export default function Header() {
@@ -10,7 +9,8 @@ export default function Header() {
     <header className="flex items-center justify-between px-6 py-4 border-b border-[#1a3a30] bg-[#0a1612]/80 backdrop-blur-md sticky top-0 z-50">
       <div className="flex items-center gap-4">
         <div className="text-[#88E59C]">
-          <Image src="/eterno-logo.svg" alt="Eterno Health" width={120} height={20} style={{ width: 120, height: "auto" }} className="brightness-0 invert opacity-90" priority />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/eterno-logo.svg" alt="Eterno Health" width={120} height={20} className="brightness-0 invert opacity-90" />
         </div>
         <div className="hidden sm:block h-6 w-px bg-[#1a3a30]" />
         <div className="hidden sm:block">
