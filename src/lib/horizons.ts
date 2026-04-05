@@ -119,6 +119,13 @@ export async function fetchMissionData() {
     throw new Error("Could not find position data for current time");
   }
 
+  // Flag if data is stale (mission ephemeris window has ended)
+  const closestTime = new Date(currentOrion.timestamp).getTime();
+  const staleness = Math.abs(now.getTime() - closestTime);
+  if (staleness > 6 * 3600 * 1000) {
+    throw new Error("Mission ephemeris data is no longer current");
+  }
+
   const distanceFromEarth = Math.sqrt(
     currentOrion.x ** 2 + currentOrion.y ** 2 + currentOrion.z ** 2
   );

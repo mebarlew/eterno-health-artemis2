@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import type { Lang } from "@/types/mission";
 
 const translations = {
@@ -124,6 +124,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const toggleLang = useCallback(() => {
     setLang((prev) => (prev === "en" ? "de" : "en"));
   }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   const t = useCallback(
     (key: TranslationKey) => translations[lang][key],

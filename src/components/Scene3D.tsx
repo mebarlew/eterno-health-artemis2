@@ -173,8 +173,12 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     const pupilGeo = new THREE.SphereGeometry(0.18, 16, 16);
     const pupilMat = new THREE.MeshBasicMaterial({ color: 0x1a1a2e });
     [[-0.55, 0.5], [0.55, 0.5]].forEach(([ex, ey]) => {
-      earthGroup.add(Object.assign(new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat), { position: new THREE.Vector3(ex, ey, EARTH_RADIUS * 0.92) }));
-      earthGroup.add(Object.assign(new THREE.Mesh(pupilGeo, pupilMat), { position: new THREE.Vector3(ex, ey - 0.05, EARTH_RADIUS * 0.92 + 0.22) }));
+      const eye = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
+      eye.position.set(ex, ey, EARTH_RADIUS * 0.92);
+      earthGroup.add(eye);
+      const pupil = new THREE.Mesh(pupilGeo, pupilMat);
+      pupil.position.set(ex, ey - 0.05, EARTH_RADIUS * 0.92 + 0.22);
+      earthGroup.add(pupil);
     });
     const smileCurve = new THREE.QuadraticBezierCurve3(
       new THREE.Vector3(-0.5, -0.2, EARTH_RADIUS * 0.95),
@@ -285,23 +289,26 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
       let endPos: THREE.Vector3;
 
       if (target === "overview") {
+        // Zoom out wide to see full Earth-Moon-trajectory
         lookAt = midpoint;
         const span = earthPos.distanceTo(moonPos);
-        endPos = midpoint.clone().add(new THREE.Vector3(0, span * 0.6, span * 0.5));
+        endPos = midpoint.clone().add(new THREE.Vector3(0, span * 0.9, span * 0.8));
       } else if (target === "orion") {
+        // Look at rocket with Moon visible in background
         lookAt = rocketPos.clone();
         const toMoon = moonPos.clone().sub(rocketPos).normalize();
-        endPos = rocketPos.clone().sub(toMoon.multiplyScalar(10)).add(new THREE.Vector3(0, 4, 0));
+        // Camera off to the side so Moon is visible
+        const side = new THREE.Vector3().crossVectors(toMoon, new THREE.Vector3(0, 1, 0)).normalize();
+        endPos = rocketPos.clone().sub(toMoon.multiplyScalar(8)).add(side.multiplyScalar(5)).add(new THREE.Vector3(0, 4, 0));
       } else if (target === "earth") {
-        // FIX #9: camera on rocket side of Earth, not opposite
+        // Simply look at Earth from above/front
         lookAt = earthPos.clone();
-        const toRocket = rocketPos.clone().sub(earthPos).normalize();
-        endPos = earthPos.clone().add(toRocket.multiplyScalar(14)).add(new THREE.Vector3(0, 6, 0));
+        endPos = earthPos.clone().add(new THREE.Vector3(5, 8, 12));
       } else {
-        // Moon: camera behind Moon, looking past it toward rocket
-        const toRocket = rocketPos.clone().sub(moonPos).normalize();
-        endPos = moonPos.clone().sub(toRocket.multiplyScalar(8)).add(new THREE.Vector3(0, 5, 0));
-        lookAt = moonPos.clone().add(toRocket.multiplyScalar(5));
+        // Moon: look at Moon, camera positioned so rocket is behind Moon
+        lookAt = moonPos.clone();
+        const fromRocket = moonPos.clone().sub(rocketPos).normalize();
+        endPos = moonPos.clone().add(fromRocket.multiplyScalar(6)).add(new THREE.Vector3(0, 4, 0));
       }
 
       const startCamPos = camera.position.clone();

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useI18n, type TranslationKey } from "@/lib/i18n";
 import type { MissionData } from "@/types/mission";
-import { CREW, LAUNCH_TIME } from "@/types/mission";
+import { CREW } from "@/types/mission";
 
 function formatNumber(n: number, lang: string): string {
   return n.toLocaleString(lang === "de" ? "de-DE" : "en-US");
@@ -32,14 +31,6 @@ function StatCard({ label, value, unit, highlight }: { label: string; value: str
 
 export default function MissionStats({ data }: { data: MissionData | null }) {
   const { t, lang } = useI18n();
-  const [elapsedDays, setElapsedDays] = useState(0);
-
-  useEffect(() => {
-    const update = () => setElapsedDays((Date.now() - LAUNCH_TIME.getTime()) / 86400000);
-    update();
-    const interval = setInterval(update, 60000);
-    return () => clearInterval(interval);
-  }, []);
 
   if (!data) {
     return (
@@ -56,6 +47,7 @@ export default function MissionStats({ data }: { data: MissionData | null }) {
 
   const { missionElapsed, distanceFromEarth, distanceFromMoon, velocity } = data.current;
   const elapsed = `${missionElapsed.days}${t("days")} ${missionElapsed.hours}${t("hours")} ${missionElapsed.minutes}${t("minutes")}`;
+  const elapsedDays = missionElapsed.days + missionElapsed.hours / 24 + missionElapsed.minutes / 1440;
   const phase = getCurrentPhase(elapsedDays);
 
   return (

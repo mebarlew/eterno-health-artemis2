@@ -1,15 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import dynamic from "next/dynamic";
+import { useEffect, useState, useCallback, useRef, type ComponentType } from "react";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import type { MissionData } from "@/types/mission";
 import type { FocusFn, FocusTarget } from "@/components/Scene3D";
 import Header from "@/components/Header";
 import MissionStats from "@/components/MissionStats";
 import MissionTimeline from "@/components/MissionTimeline";
-
-const Scene3D = dynamic(() => import("@/components/Scene3D"), { ssr: false });
 
 const REFRESH_INTERVAL = 5 * 60 * 1000;
 
@@ -47,6 +44,12 @@ function TrackerApp() {
   const focusRef = useRef<FocusFn | null>(null);
   const [activeNav, setActiveNav] = useState<FocusTarget>("overview");
   const abortRef = useRef<AbortController | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [Scene3D, setScene3D] = useState<ComponentType<any> | null>(null);
+
+  useEffect(() => {
+    import("@/components/Scene3D").then((mod) => setScene3D(() => mod.default));
+  }, []);
 
   const handleSceneReady = useCallback((fn: FocusFn) => {
     focusRef.current = fn;
@@ -113,7 +116,7 @@ function TrackerApp() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 md:gap-6">
           <div className="relative bg-[#0a1612] border border-[#1a3a30] rounded-xl overflow-hidden">
             <div className="h-[400px] md:h-[520px] lg:h-[580px]">
-              <Scene3D data={data} onReady={handleSceneReady} />
+              {Scene3D && <Scene3D data={data} onReady={handleSceneReady} />}
             </div>
 
             {loading && !data && (
