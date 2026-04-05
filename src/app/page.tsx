@@ -86,16 +86,16 @@ function TrackerApp() {
       <main className="flex-1 p-4 md:p-6 space-y-4 md:space-y-6 animate-fade-in">
         {/* 3D Scene + Stats */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 md:gap-6">
-          <div className="relative bg-[#0a1612] border border-[#1a3a30] rounded-xl overflow-hidden">
-            {/* Navigation bar */}
-            <div className="absolute top-3 left-3 right-3 z-10 flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] text-[#88E59C]/50 uppercase tracking-wider mr-1">{t("nav")}</span>
-              <NavButton color="#607d8b" label={t("overview")} active={activeNav === "overview"} onClick={() => focusOn("overview")} />
-              <NavButton color="#3498db" label={t("earth")} active={activeNav === "earth"} onClick={() => focusOn("earth")} />
-              <NavButton color="#d5d8dc" label={t("moon")} active={activeNav === "moon"} onClick={() => focusOn("moon")} />
-              <NavButton color="#88E59C" label={t("orion")} active={activeNav === "orion"} onClick={() => focusOn("orion")} />
-            </div>
+          {/* Navigation bar */}
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            <span className="text-[10px] text-[#88E59C]/50 uppercase tracking-wider mr-1">{t("nav")}</span>
+            <NavButton color="#607d8b" label={t("overview")} active={activeNav === "overview"} onClick={() => focusOn("overview")} />
+            <NavButton color="#3498db" label={t("earth")} active={activeNav === "earth"} onClick={() => focusOn("earth")} />
+            <NavButton color="#d5d8dc" label={t("moon")} active={activeNav === "moon"} onClick={() => focusOn("moon")} />
+            <NavButton color="#88E59C" label={t("orion")} active={activeNav === "orion"} onClick={() => focusOn("orion")} />
+          </div>
 
+          <div className="relative bg-[#0a1612] border border-[#1a3a30] rounded-xl overflow-hidden">
             <div className="h-[400px] md:h-[520px] lg:h-[580px]">
               <Scene3D data={data} onReady={(fn) => { focusRef.current = fn; }} />
             </div>

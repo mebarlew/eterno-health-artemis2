@@ -141,6 +141,8 @@ export default function Scene3D({ data, onReady }: { data: MissionData | null; o
     controls.minDistance = 5;
     controls.maxDistance = 200;
     controls.target.set(0, 0, 0);
+    controls.enablePan = true;
+    renderer.domElement.addEventListener("dblclick", (e) => e.stopPropagation());
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambient);
