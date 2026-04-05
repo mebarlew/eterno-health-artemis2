@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import type { MissionData } from "@/types/mission";
+import type { Scene3DHandle } from "@/components/Scene3D";
 import Header from "@/components/Header";
 import MissionStats from "@/components/MissionStats";
 import MissionTimeline from "@/components/MissionTimeline";
@@ -12,11 +13,38 @@ const Scene3D = dynamic(() => import("@/components/Scene3D"), { ssr: false });
 
 const REFRESH_INTERVAL = 5 * 60 * 1000;
 
+function LegendItem({
+  color,
+  label,
+  shape = "circle",
+  onClick,
+}: {
+  color: string;
+  label: string;
+  shape?: "circle" | "line";
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-white/5 transition-colors w-full text-left group"
+    >
+      {shape === "circle" ? (
+        <span className="w-3 h-3 rounded-full shrink-0 group-hover:scale-125 transition-transform" style={{ backgroundColor: color }} />
+      ) : (
+        <span className="w-5 h-0.5 rounded shrink-0 group-hover:scale-x-125 transition-transform" style={{ backgroundColor: color }} />
+      )}
+      <span className="text-xs text-[#F4F4F9]/80 group-hover:text-[#F4F4F9] transition-colors">{label}</span>
+    </button>
+  );
+}
+
 function TrackerApp() {
   const { t } = useI18n();
   const [data, setData] = useState<MissionData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const sceneRef = useRef<Scene3DHandle>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -39,6 +67,10 @@ function TrackerApp() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  const focusOn = (target: "earth" | "moon" | "orion") => {
+    sceneRef.current?.focusOn(target);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#080f0d]">
       <Header />
@@ -54,28 +86,16 @@ function TrackerApp() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 md:gap-6">
           <div className="relative bg-[#0a1612] border border-[#1a3a30] rounded-xl overflow-hidden">
             <div className="h-[400px] md:h-[520px] lg:h-[580px]">
-              <Scene3D data={data} />
+              <Scene3D ref={sceneRef} data={data} />
             </div>
 
-            {/* Legend overlay */}
-            <div className="absolute bottom-4 left-4 bg-[#0a1612]/90 backdrop-blur-sm border border-[#1a3a30] rounded-lg px-3 py-2 text-[10px] space-y-1">
-              <p className="text-[#88E59C]/50 uppercase tracking-wider mb-1">{t("legend")}</p>
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#4488cc]" />
-                <span className="text-[#F4F4F9]/70">{t("earth")}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#aaaaaa]" />
-                <span className="text-[#F4F4F9]/70">{t("moon")}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#88E59C]" />
-                <span className="text-[#F4F4F9]/70">{t("orion")}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-6 h-0.5 bg-[#88E59C] rounded" />
-                <span className="text-[#F4F4F9]/70">{t("trajectoryLine")}</span>
-              </div>
+            {/* Clickable legend */}
+            <div className="absolute bottom-4 left-4 bg-[#0a1612]/90 backdrop-blur-sm border border-[#1a3a30] rounded-lg p-2 min-w-[140px]">
+              <p className="text-[10px] text-[#88E59C]/50 uppercase tracking-wider px-2 mb-1">{t("legend")}</p>
+              <LegendItem color="#3498db" label={t("earth")} onClick={() => focusOn("earth")} />
+              <LegendItem color="#d5d8dc" label={t("moon")} onClick={() => focusOn("moon")} />
+              <LegendItem color="#88E59C" label={t("orion")} onClick={() => focusOn("orion")} />
+              <LegendItem color="#88E59C" label={t("trajectoryLine")} shape="line" />
             </div>
 
             {loading && (
@@ -129,7 +149,6 @@ function TrackerApp() {
     </div>
   );
 }
-
 
 export default function Page() {
   return (

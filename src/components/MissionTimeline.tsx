@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
 import { LAUNCH_TIME } from "@/types/mission";
 
@@ -21,8 +22,18 @@ const TOTAL_DAYS = 10;
 
 export default function MissionTimeline() {
   const { t } = useI18n();
-  const now = new Date();
-  const elapsedDays = (now.getTime() - LAUNCH_TIME.getTime()) / 86400000;
+  const [elapsedDays, setElapsedDays] = useState(0);
+
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      setElapsedDays((now.getTime() - LAUNCH_TIME.getTime()) / 86400000);
+    };
+    update();
+    const interval = setInterval(update, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   const progress = Math.min(Math.max(elapsedDays / TOTAL_DAYS, 0), 1);
 
   return (
@@ -42,7 +53,6 @@ export default function MissionTimeline() {
 
         <div className="flex justify-between mt-4">
           {MILESTONES.map((m) => {
-            const pos = m.dayOffset / TOTAL_DAYS;
             const isPast = elapsedDays >= m.dayOffset;
             return (
               <div

@@ -50,6 +50,8 @@ const translations = {
     vehicle: "Vehicle: SLS Block 1",
     launchSite: "Launch: KSC LC-39B",
     missionType: "Free-Return Lunar Flyby",
+    currentPhase: "Current Phase",
+    nextPhase: "Next",
   },
   de: {
     title: "Artemis II Mondmission",
@@ -97,6 +99,8 @@ const translations = {
     vehicle: "Trägerrakete: SLS Block 1",
     launchSite: "Start: KSC LC-39B",
     missionType: "Freie Rückkehr-Mondumfliegung",
+    currentPhase: "Aktuelle Phase",
+    nextPhase: "Nächste",
   },
 } as const;
 

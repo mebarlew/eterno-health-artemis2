@@ -10,7 +10,7 @@ export default function Header() {
     <header className="flex items-center justify-between px-6 py-4 border-b border-[#1a3a30] bg-[#0a1612]/80 backdrop-blur-md sticky top-0 z-50">
       <div className="flex items-center gap-4">
         <div className="text-[#88E59C]">
-          <Image src="/eterno-logo.svg" alt="Eterno Health" width={120} height={20} style={{ width: 120, height: "auto" }} className="brightness-0 invert opacity-90" />
+          <Image src="/eterno-logo.svg" alt="Eterno Health" width={120} height={20} style={{ width: 120, height: "auto" }} className="brightness-0 invert opacity-90" priority />
         </div>
         <div className="hidden sm:block h-6 w-px bg-[#1a3a30]" />
         <div className="hidden sm:block">
@@ -26,9 +26,11 @@ export default function Header() {
         </span>
         <button
           onClick={toggleLang}
-          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-[#1a3a30] text-[#88E59C] hover:bg-[#243d35] transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-[#1a3a30] text-[#88E59C] hover:bg-[#243d35] transition-colors"
         >
-          {lang === "en" ? "DE" : "EN"}
+          <span className={lang === "en" ? "font-bold" : "opacity-50"}>EN</span>
+          <span className="text-[#385759]">/</span>
+          <span className={lang === "de" ? "font-bold" : "opacity-50"}>DE</span>
         </button>
       </div>
     </header>
